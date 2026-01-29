@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório RVD - Cidades</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #2980b9;
+            --bg: #f4f7f6;
+            --text: #333;
+            --green: #27ae60;
+            --red: #c0392b;
+            --border: #ddd;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        
+        .container { max-width: 1400px; margin: 0 auto; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-radius: 8px; overflow: hidden; }
+
+        /* Header */
+        .header { background: var(--primary); color: #fff; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
+        .header h2 { margin: 0; font-size: 1.4rem; }
+        .header small { opacity: 0.8; font-weight: normal; }
+
+        /* Controles */
+        .controls { padding: 20px 30px; border-bottom: 1px solid var(--border); background: #fff; display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-end; }
+        
+        .btn-upload { background: var(--accent); color: #fff; padding: 10px 20px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .btn-upload:hover { background-color: #1f618d; }
+        input[type="file"] { display: none; }
+
+        .input-group { display: flex; flex-direction: column; gap: 4px; }
+        .input-group label { font-size: 0.75rem; font-weight: 700; color: #777; text-transform: uppercase; }
+        .input-field { padding: 8px; border: 1px solid var(--border); border-radius: 4px; width: 100px; font-size: 1rem; }
+
+        /* Resumo (Cards) */
+        .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; padding: 20px 30px; background: #f8f9fa; border-bottom: 1px solid var(--border); }
+        .card { background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #eee; }
+        .card h4 { margin: 0 0 5px; font-size: 0.8rem; color: #888; text-transform: uppercase; }
+        .card .val { font-size: 1.4rem; font-weight: 700; color: var(--primary); }
+        .card.profit .val { color: var(--green); }
+        .card.loss .val { color: var(--red); }
+
+        /* Tabela */
+        .table-wrap { overflow-x: auto; padding: 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        
+        th { background: #f1f2f3; text-align: left; padding: 12px 15px; font-weight: 600; color: #555; border-bottom: 2px solid var(--border); white-space: nowrap; }
+        td { padding: 10px 15px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        
+        tr:hover { background-color: #f9f9f9; }
+        
+        /* Estilos Específicos da Tabela */
+        .col-money { text-align: right; font-family: 'Consolas', monospace; }
+        .col-center { text-align: center; }
+        .text-green { color: var(--green); font-weight: bold; }
+        .text-red { color: var(--red); font-weight: bold; }
+        
+        /* Estilo da Rota Simplificada */
+        .route-badge {
+            background-color: #e8f4f8;
+            color: #2c3e50;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: inline-block;
+            border: 1px solid #d6eaf8;
+        }
+
+        /* Checkbox Customizado */
+        .driver-check { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent); }
+
+        .hidden { display: none; }
+        #file-name { margin-left: 10px; color: #666; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2><i class="fas fa-map-marked-alt"></i> Controle de Rotas RVD</h2>
+        <small>Filtro: Sem Montividiu/Claudia</small>
+    </div>
+
+    <div class="controls">
+        <div>
+            <label for="upload" class="btn-upload"><i class="fas fa-folder-open"></i> Carregar Excel</label>
+            <input type="file" id="upload" accept=".xlsx, .xls" onchange="handleFile()">
+            <span id="file-name"></span>
+        </div>
+        
+        <div style="flex: 1;"></div>
+
+        <div class="input-group">
+            <label>Gasolina (R$)</label>
+            <input type="number" id="inp-gas" class="input-field" value="6.30" step="0.01" oninput="updateCalculations()">
+        </div>
+        <div class="input-group">
+            <label>Consumo (Km/L)</label>
+            <input type="number" id="inp-km" class="input-field" value="10" step="0.1" oninput="updateCalculations()">
+        </div>
+        <div class="input-group">
+            <label>Motorista (R$)</label>
+            <input type="number" id="inp-driver" class="input-field" value="50" oninput="updateCalculations()">
+        </div>
+    </div>
+
+    <div id="main-content" class="hidden">
+        <div class="summary">
+            <div class="card">
+                <h4>Receita Total</h4>
+                <div class="val" id="kpi-rev">R$ 0,00</div>
+            </div>
+            <div class="card">
+                <h4>Custo Total</h4>
+                <div class="val" id="kpi-cost">R$ 0,00</div>
+            </div>
+            <div class="card profit">
+                <h4>Lucro Líquido</h4>
+                <div class="val" id="kpi-profit">R$ 0,00</div>
+            </div>
+            <div class="card">
+                <h4>Viagens</h4>
+                <div class="val" id="kpi-count">0</div>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table id="data-table">
+                <thead>
+                    <tr>
+                        <th width="5%" title="Desmarque se você dirigiu">Mot.?</th>
+                        <th width="15%">Dia da Semana</th>
+                        <th width="25%">Rota (Origem ➝ Destino)</th>
+                        <th width="5%" class="col-center">KM</th>
+                        <th width="10%" class="col-money">Receita</th>
+                        <th width="10%" class="col-money" style="color:#e67e22;">Gasolina</th>
+                        <th width="10%" class="col-money" style="color:#2980b9;">Motorista</th>
+                        <th width="10%" class="col-money">Total</th>
+                        <th width="10%" class="col-money">Lucro</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Estado Global da Aplicação
+    let appState = {
+        trips: [], 
+        config: {
+            gasPrice: 6.30,
+            kmPerLiter: 10,
+            driverFee: 50
+        }
+    };
+
+    const formatMoney = val => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    
+    // --- FUNÇÕES DE FORMATAÇÃO ---
+
+    function getWeekDay(val) {
+        let dateObj = null;
+        if (val instanceof Date) dateObj = val;
+        else if (typeof val === 'number') dateObj = new Date(Math.round((val - 25569)*86400*1000));
+        
+        if (dateObj) {
+            dateObj.setHours(dateObj.getHours() + 12); // Ajuste timezone
+            const dayName = dateObj.toLocaleDateString('pt-BR', { weekday: 'long' });
+            return dayName.charAt(0).toUpperCase() + dayName.slice(1);
+        }
+        return "N/D";
+    }
+
+    // Simplifica a rota pegando texto real, ignorando números
+    function simplifyRoute(routeStr) {
+        if (!routeStr) return "-";
+        
+        // Remove aspas
+        let cleanStr = routeStr.replace(/^"|"$/g, '');
+        
+        // Separa cidades por vírgula
+        let cities = cleanStr.split(',').map(c => c.trim());
+        
+        if (cities.length <= 1) {
+            return cities[0];
+        } else {
+            const first = cities[0];
+            const last = cities[cities.length - 1];
+            
+            // Se a última for vazia, pega a penúltima
+            if (!last && cities.length > 2) {
+                return `${first} ➝ ${cities[cities.length - 2]}`;
+            }
+            return `${first} ➝ ${last}`;
+        }
+    }
+
+    function handleFile() {
+        const file = document.getElementById('upload').files[0];
+        if (!file) return;
+        document.getElementById('file-name').innerText = file.name;
+
+        const reader = new FileReader();
+        reader.onload = e => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(sheet, {header: 1});
+            processData(json);
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function processData(rows) {
+        let headerRow = -1;
+        for(let i=0; i<rows.length; i++) {
+            const str = JSON.stringify(rows[i]).toUpperCase();
+            if(str.includes("DATA") && str.includes("KM")) {
+                headerRow = i;
+                break;
+            }
+        }
+
+        if(headerRow === -1) { alert("Erro: Cabeçalho não encontrado."); return; }
+
+        const headers = rows[headerRow].map(h => h ? h.toString().toUpperCase().trim() : "");
+        const idx = {
+            data: headers.indexOf("DATA"),
+            km: headers.indexOf("KM"),
+            val: headers.indexOf("SAIDA"),
+            parceiro: headers.indexOf("PARCEIRO"),
+            rota: headers.indexOf("ROTA"),
+            cidade: headers.indexOf("CIDADE")
+        };
+
+        appState.trips = [];
+        
+        for(let i = headerRow + 1; i < rows.length; i++) {
+            const row = rows[i];
+            if(!row[idx.data] || row[idx.km] == null) continue;
+
+            const parceiro = (row[idx.parceiro] || "").toString();
+            
+            // LÓGICA DE PRIORIDADE: Texto da Cidade > Texto da Rota > Número
+            let rawText = (row[idx.cidade] || "").toString();
+            
+            // Se a coluna cidade for vazia ou for APENAS número, tenta usar a coluna Rota
+            // (Mas só se a coluna Rota não for número também)
+            if ((!rawText || !isNaN(rawText)) && row[idx.rota]) {
+                const rotaVal = row[idx.rota].toString();
+                if (isNaN(rotaVal)) { // Se rota não for número (ex: "Santa Helena")
+                    rawText = rotaVal;
+                }
+            }
+            
+            // Se ainda assim for apenas número, é porque o Excel só tem o ID
+            // Nesse caso, mantemos vazio ou o número, mas o 'simplifyRoute' vai tratar
+            if (!isNaN(rawText) && rawText.length < 3) {
+                 // É provável que seja um ID (ex: "4"), tenta procurar algum texto nas colunas adjacentes (opcional)
+                 // Mas vamos deixar passar para ver se o simplify resolve ou mostra o numero
+            }
+
+            // Filtros de Exclusão
+            if(rawText.toUpperCase().includes("MONTIVIDIU") || 
+               parceiro.toUpperCase().includes("CLAUDIA")) continue;
+
+            appState.trips.push({
+                id: i,
+                dayName: getWeekDay(row[idx.data]),
+                routeDisplay: simplifyRoute(rawText), // Aplica formatação bonita
+                km: parseFloat(row[idx.km]) || 0,
+                revenue: parseFloat(row[idx.val]) || 0,
+                hasDriver: true
+            });
+        }
+
+        document.getElementById('main-content').classList.remove('hidden');
+        updateCalculations();
+    }
+
+    function updateCalculations() {
+        appState.config.gasPrice = parseFloat(document.getElementById('inp-gas').value) || 0;
+        appState.config.kmPerLiter = parseFloat(document.getElementById('inp-km').value) || 1;
+        appState.config.driverFee = parseFloat(document.getElementById('inp-driver').value) || 0;
+        renderTable();
+    }
+
+    function renderTable() {
+        const tbody = document.querySelector("#data-table tbody");
+        tbody.innerHTML = "";
+        let totalRev = 0, totalCost = 0, count = 0;
+
+        appState.trips.forEach((trip, index) => {
+            const gasCost = (trip.km / appState.config.kmPerLiter) * appState.config.gasPrice;
+            const driverCost = trip.hasDriver ? appState.config.driverFee : 0;
+            const totalTripCost = gasCost + driverCost;
+            const profit = trip.revenue - totalTripCost;
+
+            totalRev += trip.revenue;
+            totalCost += totalTripCost;
+            count++;
+
+            const tr = document.createElement("tr");
+            const profitClass = profit >= 0 ? 'text-green' : 'text-red';
+
+            tr.innerHTML = `
+                <td><div style="text-align:center;"><input type="checkbox" class="driver-check" ${trip.hasDriver ? 'checked' : ''} onchange="toggleDriver(${index})"></div></td>
+                
+                <td style="font-weight:500;">${trip.dayName}</td>
+                
+                <td><span class="route-badge">${trip.routeDisplay}</span></td>
+                
+                <td class="col-center">${trip.km}</td>
+                <td class="col-money">${formatMoney(trip.revenue)}</td>
+                <td class="col-money" style="color:#e67e22;">${formatMoney(gasCost)}</td>
+                <td class="col-money" style="color:#2980b9;">${formatMoney(driverCost)}</td>
+                <td class="col-money" style="font-weight:600;">${formatMoney(totalTripCost)}</td>
+                <td class="col-money ${profitClass}">${formatMoney(profit)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        updateKPIs(totalRev, totalCost, count);
+    }
+
+    window.toggleDriver = function(index) {
+        appState.trips[index].hasDriver = !appState.trips[index].hasDriver;
+        renderTable();
+    };
+
+    function updateKPIs(rev, cost, count) {
+        const profit = rev - cost;
+        document.getElementById('kpi-rev').innerText = formatMoney(rev);
+        document.getElementById('kpi-cost').innerText = formatMoney(cost);
+        const elProfit = document.getElementById('kpi-profit');
+        elProfit.innerText = formatMoney(profit);
+        
+        const cardProfit = elProfit.parentElement;
+        if(profit >= 0) { cardProfit.classList.add('profit'); cardProfit.classList.remove('loss'); } 
+        else { cardProfit.classList.add('loss'); cardProfit.classList.remove('profit'); }
+
+        document.getElementById('kpi-count').innerText = count;
+    }
+</script>
+
+</body>
+</html>
