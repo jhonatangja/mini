@@ -1,456 +1,221 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relatório RVD - Master</title>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <style>
-        :root {
-            --primary: #2c3e50;
-            --accent: #2980b9;
-            --bg: #f4f7f6;
-            --text: #333;
-            --border: #ddd;
-            
-            /* Cores Semânticas */
-            --c-rev: #27ae60;    /* Receita (Verde) */
-            --c-gas: #e67e22;    /* Gasolina (Laranja) */
-            --c-driver: #2980b9; /* Motorista (Azul) */
-            --c-deprec: #8e44ad; /* Depreciação (Roxo) */
-            --c-loss: #c0392b;   /* Prejuízo (Vermelho) */
-        }
-
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        
-        .container { max-width: 1500px; margin: 0 auto; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-radius: 8px; overflow: hidden; }
-
-        /* Header */
-        .header { background: var(--primary); color: #fff; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
-        .header h2 { margin: 0; font-size: 1.4rem; }
-        .header small { opacity: 0.8; font-weight: normal; }
-
-        /* Controles */
-        .controls { padding: 20px 30px; border-bottom: 1px solid var(--border); background: #fff; display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-end; }
-        
-        .btn-upload { background: var(--primary); color: #fff; padding: 10px 20px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
-        .btn-upload:hover { background-color: #34495e; }
-        input[type="file"] { display: none; }
-
-        /* Grupos de Inputs */
-        .input-section { display: flex; gap: 15px; padding: 10px; border-radius: 6px; background-color: #f9f9f9; border: 1px solid #eee; }
-        .section-title { font-size: 0.7rem; font-weight: 800; color: #999; text-transform: uppercase; margin-bottom: 5px; width: 100%; }
-        
-        .input-group { display: flex; flex-direction: column; gap: 4px; }
-        .input-group label { font-size: 0.75rem; font-weight: 700; color: #666; text-transform: uppercase; }
-        
-        .input-field { padding: 8px; border: 1px solid var(--border); border-radius: 4px; width: 100px; font-size: 1rem; font-weight: 600; }
-        .input-field:focus { outline: none; border-color: var(--accent); }
-
-        /* Bordas Coloridas nos Inputs para Identificação Rápida */
-        #inp-rev-km { border-color: var(--c-rev); color: var(--c-rev); }
-        #inp-gas { border-color: var(--c-gas); }
-        #inp-driver { border-color: var(--c-driver); }
-        #inp-deprec { border-color: var(--c-deprec); }
-
-        /* Select de Filtro */
-        .filter-select {
-            padding: 8px; border: 2px solid #ccc; border-radius: 4px; 
-            font-size: 1rem; background-color: #fff; color: var(--text);
-            font-weight: 600; cursor: pointer; width: 180px;
-        }
-
-        /* Resumo (Cards) */
-        .summary-section { background: #fff; border-bottom: 1px solid var(--border); padding: 20px 30px; }
-        
-        .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
-        .card { background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #eee; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
-        .card h4 { margin: 0 0 5px; font-size: 0.8rem; color: #888; text-transform: uppercase; }
-        .card .val { font-size: 1.4rem; font-weight: 700; color: var(--primary); }
-        .card.profit .val { color: var(--c-rev); }
-        .card.loss .val { color: var(--c-loss); }
-
-        /* Barra Inferior de Totais */
-        .cost-breakdown { 
-            display: flex; gap: 20px; font-size: 0.9rem; color: #555; 
-            padding-top: 15px; border-top: 1px dashed #e0e0e0;
-        }
-        .cost-item { display: flex; align-items: center; gap: 6px; background: #f8f9fa; padding: 5px 10px; border-radius: 4px; }
-        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-        
-        /* Tabela */
-        .table-wrap { overflow-x: auto; padding: 0; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        
-        th { background: #f1f2f3; text-align: left; padding: 12px 10px; font-weight: 600; color: #555; border-bottom: 2px solid var(--border); white-space: nowrap; }
-        td { padding: 10px 10px; border-bottom: 1px solid #eee; vertical-align: middle; }
-        
-        tr:hover { background-color: #f9f9f9; }
-        
-        .col-money { text-align: right; font-family: 'Consolas', monospace; }
-        .col-center { text-align: center; }
-        .text-green { color: var(--c-rev); font-weight: bold; }
-        .text-red { color: var(--c-loss); font-weight: bold; }
-        
-        .route-badge {
-            background-color: #e8f4f8; color: #2c3e50; padding: 3px 6px;
-            border-radius: 4px; font-weight: 600; display: inline-block;
-            border: 1px solid #d6eaf8; font-size: 0.8rem;
-        }
-
-        .driver-check { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); }
-        
-        .hidden-col { display: none; }
-        .hidden { display: none; }
-        #file-name { margin-left: 10px; color: #666; font-size: 0.9rem; }
-
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checklist F RVD</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    color: #222;
+  }
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 22px;
+    box-shadow: 0 3px 15px rgba(0,0,0,.08);
+  }
+  h1 { margin: 0 0 5px; font-size: 25px; }
+  .date { color: #666; margin-bottom: 20px; }
+  .task {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    border: 1px solid #ddd;
+    background: #fff;
+    border-radius: 10px;
+    padding: 14px;
+    margin: 8px 0;
+    cursor: pointer;
+    text-align: left;
+    font-size: 16px;
+  }
+  .task:hover { background: #f8f8f8; }
+  .status {
+    font-size: 20px;
+    width: 24px;
+    text-align: center;
+  }
+  .task.done {
+    background: #f0faf2;
+    border-color: #b8dfbf;
+  }
+  .task.done .name {
+    text-decoration: none;
+  }
+  .buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  button.action {
+    border: 0;
+    border-radius: 10px;
+    padding: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .copy { background: #128c7e; color: white; }
+  .reset { background: #e9ecef; color: #333; }
+  .select { background: #222; color: white; }
+  textarea {
+    width: 100%;
+    min-height: 180px;
+    margin-top: 16px;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 12px;
+    font-family: Arial, sans-serif;
+    font-size: 15px;
+    resize: vertical;
+  }
+  .counter {
+    margin-top: 15px;
+    font-weight: bold;
+    color: #555;
+  }
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 25px;
+    transform: translateX(-50%);
+    background: #222;
+    color: white;
+    padding: 11px 18px;
+    border-radius: 30px;
+    display: none;
+  }
+</style>
 </head>
 <body>
-
 <div class="container">
-    <div class="header">
-        <h2><i class="fas fa-chart-pie"></i> Painel Gerencial RVD</h2>
-        <small>Filtro Automático: Sem Montividiu/Claudia</small>
+  <div class="card">
+    <h1>CHECKLIST F RVD</h1>
+    <div class="date" id="date"></div>
+
+    <div id="tasks"></div>
+
+    <div class="counter" id="counter"></div>
+
+    <div class="buttons">
+      <button class="action select" onclick="selectAll()">MARCAR TODAS</button>
+      <button class="action reset" onclick="resetAll()">RESETAR</button>
+      <button class="action copy" onclick="copyMessage()">COPIAR WHATSAPP</button>
     </div>
 
-    <div class="controls">
-        <div style="display:flex; flex-direction:column; gap:10px;">
-            <div>
-                <label for="upload" class="btn-upload"><i class="fas fa-file-excel"></i> Carregar Planilha</label>
-                <input type="file" id="upload" accept=".xlsx, .xls" onchange="handleFile()">
-                <div id="file-name"></div>
-            </div>
-            
-            <div class="input-group">
-                <label>Visualização</label>
-                <select id="cost-filter" class="filter-select" onchange="updateCalculations()">
-                    <option value="all">Completa (Tudo)</option>
-                    <option value="gas">Apenas Gasolina</option>
-                    <option value="driver">Apenas Motorista</option>
-                    <option value="deprec">Apenas Depreciação</option>
-                </select>
-            </div>
-        </div>
-
-        <div style="flex: 1;"></div> 
-
-        <div class="input-section" style="border-left: 3px solid var(--c-rev);">
-            <div class="input-group">
-                <label style="color:var(--c-rev);">Receita (R$/Km)</label>
-                <input type="number" id="inp-rev-km" class="input-field" value="1.20" step="0.05" oninput="updateCalculations()">
-            </div>
-        </div>
-
-        <div class="input-section" style="border-left: 3px solid var(--c-loss);">
-            <div class="input-group">
-                <label>Gasolina (R$)</label>
-                <input type="number" id="inp-gas" class="input-field" value="6.30" step="0.01" oninput="updateCalculations()">
-            </div>
-            <div class="input-group">
-                <label>Consumo (Km/L)</label>
-                <input type="number" id="inp-km" class="input-field" value="10" step="0.1" oninput="updateCalculations()">
-            </div>
-            <div class="input-group">
-                <label>Motorista (R$)</label>
-                <input type="number" id="inp-driver" class="input-field" value="50" step="5" oninput="updateCalculations()">
-            </div>
-            <div class="input-group">
-                <label>Deprec. (R$/Km)</label>
-                <input type="number" id="inp-deprec" class="input-field" value="0.20" step="0.05" oninput="updateCalculations()">
-            </div>
-        </div>
-    </div>
-
-    <div id="main-content" class="hidden">
-        
-        <div class="summary-section">
-            <div class="summary-cards">
-                <div class="card">
-                    <h4>Receita Total</h4>
-                    <div class="val" id="kpi-rev">R$ 0,00</div>
-                </div>
-                <div class="card">
-                    <h4 id="label-cost">Custos Totais</h4>
-                    <div class="val" id="kpi-cost">R$ 0,00</div>
-                </div>
-                <div class="card profit">
-                    <h4 id="label-profit">Lucro Líquido</h4>
-                    <div class="val" id="kpi-profit">R$ 0,00</div>
-                </div>
-                <div class="card">
-                    <h4>Qtd. Viagens</h4>
-                    <div class="val" id="kpi-count">0</div>
-                </div>
-            </div>
-
-            <div id="breakdown-bar" class="cost-breakdown">
-                <div class="cost-item"><span class="dot" style="background:var(--c-gas);"></span> Gasolina: <b id="sum-gas" style="margin-left:5px;">R$ 0,00</b></div>
-                <div class="cost-item"><span class="dot" style="background:var(--c-driver);"></span> Motorista: <b id="sum-driver" style="margin-left:5px;">R$ 0,00</b></div>
-                <div class="cost-item"><span class="dot" style="background:var(--c-deprec);"></span> Depreciação: <b id="sum-deprec" style="margin-left:5px;">R$ 0,00</b></div>
-            </div>
-        </div>
-
-        <div class="table-wrap">
-            <table id="data-table">
-                <thead>
-                    <tr>
-                        <th width="4%">Mot.?</th>
-                        <th width="12%">Dia da Semana</th>
-                        <th width="20%">Rota (Origem ➝ Destino)</th>
-                        <th width="5%" class="col-center">KM</th>
-                        
-                        <th width="10%" class="col-money" style="color:var(--c-rev);">Receita</th>
-                        
-                        <th width="10%" class="col-money col-gas" style="color:var(--c-gas);">Gasolina</th>
-                        <th width="10%" class="col-money col-driver" style="color:var(--c-driver);">Motorista</th>
-                        <th width="10%" class="col-money col-deprec" style="color:var(--c-deprec);">Deprec.</th>
-                        
-                        <th width="10%" class="col-money" style="font-weight:700;">Custo <span id="th-cost-type">Total</span></th>
-                        <th width="10%" class="col-money">Lucro</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-    </div>
+    <textarea id="message" readonly></textarea>
+  </div>
 </div>
 
+<div class="toast" id="toast">Mensagem copiada!</div>
+
 <script>
-    let appState = {
-        trips: [], 
-        config: {
-            revenuePerKm: 1.20,
-            gasPrice: 6.30,
-            kmPerLiter: 10,
-            driverFee: 50,
-            depreciationPerKm: 0.20
-        },
-        filter: 'all'
-    };
+const tasks = [
+  "Deslacre J&T",
+  "Expedição J&T",
+  "Não chegou J&T",
+  "Retidos J&T",
+  "Sem movimentação",
+  "Devolução",
+  "Romaneio J&T",
+  "Organização do terminal (base)",
+  "Tirar foto do terminal organizado"
+];
 
-    const formatMoney = val => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    
-    // Auxiliares
-    function getWeekDay(val) {
-        let dateObj = null;
-        if (val instanceof Date) dateObj = val;
-        else if (typeof val === 'number') dateObj = new Date(Math.round((val - 25569)*86400*1000));
-        
-        if (dateObj) {
-            dateObj.setHours(dateObj.getHours() + 12);
-            const dayName = dateObj.toLocaleDateString('pt-BR', { weekday: 'long' });
-            return dayName.charAt(0).toUpperCase() + dayName.slice(1);
-        }
-        return "N/D";
-    }
+let status = new Array(tasks.length).fill(false);
 
-    function simplifyRoute(routeStr) {
-        if (!routeStr) return "-";
-        let cleanStr = routeStr.replace(/^"|"$/g, '');
-        let cities = cleanStr.split(',').map(c => c.trim());
-        if (cities.length <= 1) return cities[0];
-        const first = cities[0];
-        const last = cities[cities.length - 1];
-        if (!last && cities.length > 2) return `${first} ➝ ${cities[cities.length - 2]}`;
-        return `${first} ➝ ${last}`;
-    }
+function formatDate() {
+  const d = new Date();
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  return `${day}/${month}`;
+}
 
-    function handleFile() {
-        const file = document.getElementById('upload').files[0];
-        if (!file) return;
-        document.getElementById('file-name').innerText = file.name;
+function render() {
+  document.getElementById("date").textContent = formatDate();
 
-        const reader = new FileReader();
-        reader.onload = e => {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, {type: 'array', cellDates: true});
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const json = XLSX.utils.sheet_to_json(sheet, {header: 1});
-            processData(json);
-        };
-        reader.readAsArrayBuffer(file);
-    }
+  const box = document.getElementById("tasks");
+  box.innerHTML = "";
 
-    function processData(rows) {
-        let headerRow = -1;
-        for(let i=0; i<rows.length; i++) {
-            const str = JSON.stringify(rows[i]).toUpperCase();
-            if(str.includes("DATA") && str.includes("KM")) {
-                headerRow = i;
-                break;
-            }
-        }
+  tasks.forEach((task, i) => {
+    const button = document.createElement("button");
+    button.className = "task" + (status[i] ? " done" : "");
+    button.onclick = () => toggle(i);
 
-        if(headerRow === -1) { alert("Erro: Cabeçalho não encontrado."); return; }
+    button.innerHTML = `
+      <span class="status">${status[i] ? "✅" : "⬜"}</span>
+      <span class="name">${task}</span>
+    `;
 
-        const headers = rows[headerRow].map(h => h ? h.toString().toUpperCase().trim() : "");
-        const idx = {
-            data: headers.indexOf("DATA"),
-            km: headers.indexOf("KM"),
-            // SAIDA não é mais usada para cálculo, calcularemos via KM * INPUT
-            parceiro: headers.indexOf("PARCEIRO"),
-            rota: headers.indexOf("ROTA"),
-            cidade: headers.indexOf("CIDADE")
-        };
+    box.appendChild(button);
+  });
 
-        appState.trips = [];
-        for(let i = headerRow + 1; i < rows.length; i++) {
-            const row = rows[i];
-            if(!row[idx.data] || row[idx.km] == null) continue;
+  const done = status.filter(Boolean).length;
+  document.getElementById("counter").textContent =
+    `${done} de ${tasks.length} tarefas concluídas`;
 
-            const parceiro = (row[idx.parceiro] || "").toString();
-            let rawText = (row[idx.cidade] || "").toString();
-            if ((!rawText || !isNaN(rawText)) && row[idx.rota]) {
-                const rotaVal = row[idx.rota].toString();
-                if (isNaN(rotaVal)) rawText = rotaVal;
-            }
+  document.getElementById("message").value = createMessage();
+}
 
-            if(rawText.toUpperCase().includes("MONTIVIDIU") || 
-               parceiro.toUpperCase().includes("CLAUDIA")) continue;
+function toggle(i) {
+  status[i] = !status[i];
+  render();
+}
 
-            appState.trips.push({
-                id: i,
-                dayName: getWeekDay(row[idx.data]),
-                routeDisplay: simplifyRoute(rawText),
-                km: parseFloat(row[idx.km]) || 0,
-                hasDriver: true
-            });
-        }
-        document.getElementById('main-content').classList.remove('hidden');
-        updateCalculations();
-    }
+function selectAll() {
+  status.fill(true);
+  render();
+}
 
-    function updateCalculations() {
-        // Ler configurações do usuário
-        appState.config.revenuePerKm = parseFloat(document.getElementById('inp-rev-km').value) || 0;
-        appState.config.gasPrice = parseFloat(document.getElementById('inp-gas').value) || 0;
-        appState.config.kmPerLiter = parseFloat(document.getElementById('inp-km').value) || 1;
-        appState.config.driverFee = parseFloat(document.getElementById('inp-driver').value) || 0;
-        appState.config.depreciationPerKm = parseFloat(document.getElementById('inp-deprec').value) || 0;
-        
-        appState.filter = document.getElementById('cost-filter').value;
-        updateColumnVisibility();
-        renderTable();
-    }
+function resetAll() {
+  status.fill(false);
+  render();
+}
 
-    function updateColumnVisibility() {
-        const filter = appState.filter;
-        
-        const colsGas = document.querySelectorAll('.col-gas');
-        const colsDriver = document.querySelectorAll('.col-driver');
-        const colsDeprec = document.querySelectorAll('.col-deprec');
-        const breakdownBar = document.getElementById('breakdown-bar');
-        const thCostType = document.getElementById('th-cost-type');
+function createMessage() {
+  const date = formatDate();
+  let text = `BOM DIA ${date} F RVD\nsegue o checklist do dia.\n\n`;
 
-        // Reset
-        colsGas.forEach(e => e.classList.remove('hidden-col'));
-        colsDriver.forEach(e => e.classList.remove('hidden-col'));
-        colsDeprec.forEach(e => e.classList.remove('hidden-col'));
-        breakdownBar.style.display = 'flex';
-        thCostType.innerText = 'Total';
+  tasks.forEach((task, i) => {
+    text += `- ${task} ${status[i] ? "✅" : "❌"}\n`;
+  });
 
-        if (filter === 'gas') {
-            colsDriver.forEach(e => e.classList.add('hidden-col'));
-            colsDeprec.forEach(e => e.classList.add('hidden-col'));
-            breakdownBar.style.display = 'none';
-            thCostType.innerText = '(Gas)';
-        } else if (filter === 'driver') {
-            colsGas.forEach(e => e.classList.add('hidden-col'));
-            colsDeprec.forEach(e => e.classList.add('hidden-col'));
-            breakdownBar.style.display = 'none';
-            thCostType.innerText = '(Mot)';
-        } else if (filter === 'deprec') {
-            colsGas.forEach(e => e.classList.add('hidden-col'));
-            colsDriver.forEach(e => e.classList.add('hidden-col'));
-            breakdownBar.style.display = 'none';
-            thCostType.innerText = '(Dep)';
-        }
-    }
+  return text.trim();
+}
 
-    function renderTable() {
-        const tbody = document.querySelector("#data-table tbody");
-        tbody.innerHTML = "";
-        
-        let totalRev = 0, totalMainCost = 0, count = 0;
-        let sumGas = 0, sumDriver = 0, sumDeprec = 0;
+async function copyMessage() {
+  const text = createMessage();
 
-        appState.trips.forEach((trip, index) => {
-            // CÁLCULO DINÂMICO DA RECEITA
-            const currentRevenue = trip.km * appState.config.revenuePerKm;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Mensagem copiada!");
+  } catch {
+    const textarea = document.getElementById("message");
+    textarea.select();
+    document.execCommand("copy");
+    showToast("Mensagem copiada!");
+  }
+}
 
-            const gasCost = (trip.km / appState.config.kmPerLiter) * appState.config.gasPrice;
-            const driverCost = trip.hasDriver ? appState.config.driverFee : 0;
-            const deprecCost = trip.km * appState.config.depreciationPerKm;
-            
-            sumGas += gasCost;
-            sumDriver += driverCost;
-            sumDeprec += deprecCost;
+function showToast(text) {
+  const toast = document.getElementById("toast");
+  toast.textContent = text;
+  toast.style.display = "block";
+  setTimeout(() => toast.style.display = "none", 1800);
+}
 
-            let displayCost = 0;
-            if (appState.filter === 'all') displayCost = gasCost + driverCost + deprecCost;
-            else if (appState.filter === 'gas') displayCost = gasCost;
-            else if (appState.filter === 'driver') displayCost = driverCost;
-            else if (appState.filter === 'deprec') displayCost = deprecCost;
-
-            const profit = currentRevenue - displayCost;
-
-            totalRev += currentRevenue;
-            totalMainCost += displayCost;
-            count++;
-
-            const tr = document.createElement("tr");
-            const profitClass = profit >= 0 ? 'text-green' : 'text-red';
-            
-            const hideGas = appState.filter !== 'all' && appState.filter !== 'gas' ? 'hidden-col' : '';
-            const hideDriver = appState.filter !== 'all' && appState.filter !== 'driver' ? 'hidden-col' : '';
-            const hideDeprec = appState.filter !== 'all' && appState.filter !== 'deprec' ? 'hidden-col' : '';
-
-            tr.innerHTML = `
-                <td><div style="text-align:center;"><input type="checkbox" class="driver-check" ${trip.hasDriver ? 'checked' : ''} onchange="toggleDriver(${index})"></div></td>
-                <td style="font-weight:500;">${trip.dayName}</td>
-                <td><span class="route-badge">${trip.routeDisplay}</span></td>
-                <td class="col-center">${trip.km}</td>
-                
-                <td class="col-money" style="color:var(--c-rev); font-weight:600;">${formatMoney(currentRevenue)}</td>
-                
-                <td class="col-money col-gas ${hideGas}" style="color:var(--c-gas);">${formatMoney(gasCost)}</td>
-                <td class="col-money col-driver ${hideDriver}" style="color:var(--c-driver);">${formatMoney(driverCost)}</td>
-                <td class="col-money col-deprec ${hideDeprec}" style="color:var(--c-deprec);">${formatMoney(deprecCost)}</td>
-                
-                <td class="col-money" style="font-weight:700;">${formatMoney(displayCost)}</td>
-                <td class="col-money ${profitClass}">${formatMoney(profit)}</td>
-            `;
-            tbody.appendChild(tr);
-        });
-
-        // Atualizar KPIs
-        const totalProfit = totalRev - totalMainCost;
-        document.getElementById('kpi-rev').innerText = formatMoney(totalRev);
-        document.getElementById('kpi-cost').innerText = formatMoney(totalMainCost);
-        document.getElementById('kpi-count').innerText = count;
-
-        const elProfit = document.getElementById('kpi-profit');
-        elProfit.innerText = formatMoney(totalProfit);
-        const cardProfit = elProfit.parentElement;
-        
-        if(totalProfit >= 0) { cardProfit.classList.add('profit'); cardProfit.classList.remove('loss'); } 
-        else { cardProfit.classList.add('loss'); cardProfit.classList.remove('profit'); }
-
-        // Atualizar Barra Inferior
-        document.getElementById('sum-gas').innerText = formatMoney(sumGas);
-        document.getElementById('sum-driver').innerText = formatMoney(sumDriver);
-        document.getElementById('sum-deprec').innerText = formatMoney(sumDeprec);
-    }
-
-    window.toggleDriver = function(index) {
-        appState.trips[index].hasDriver = !appState.trips[index].hasDriver;
-        updateCalculations();
-    };
+render();
 </script>
-
 </body>
 </html>
